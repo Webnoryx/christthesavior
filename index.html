@@ -5,7 +5,7 @@
     <meta name="google-site-verification" content="eK-8dqucYn5f-sInCi6X6LPFUPKXICx6wD5qqAIQmog" />
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>Christ the Savior Church — Worship Songbook</title>
+    <title>Christtest the Savior Church — Worship Songbook</title>
 
     <!-- ===== PWA: install + offline support ===== -->
     <link rel="manifest" href="manifest.json">
@@ -477,7 +477,7 @@
         <div class="splash-text"></div>
     </div>
 
-    <script src="songs.js?v=1001"></script>
+    <script src="songs.js"></script>
 
     <script>
         let songsDatabase = [];
@@ -900,16 +900,27 @@
             console.log('Loaded', songsDatabase.length, 'songs successfully');
         }
 
-        initSettings();
-        initApp();
+        
+initSettings();
+initApp();
 
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('service-worker.js')
-                    .then(reg => console.log('Service worker registered', reg.scope))
-                    .catch(err => console.warn('Service worker registration failed', err));
-            });
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', async () => {
+        try {
+            const reg = await navigator.serviceWorker.register(
+                './service-worker.js',
+                { updateViaCache: 'none' }
+            );
+
+            await reg.update();
+
+            console.log('Service worker registered and update checked', reg.scope);
+        } catch (err) {
+            console.warn('Service worker registration failed', err);
         }
+    });
+}
+
 
         let deferredInstallPrompt = null;
         window.addEventListener('beforeinstallprompt', (e) => {
