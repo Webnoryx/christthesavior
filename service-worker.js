@@ -1,75 +1,125 @@
-// ============================================================
-// Service Worker - Christ the Savior Church Songbook
-// This makes the site work fully OFFLINE after the first visit.
-// ============================================================
 
-const CACHE_VERSION = 'cts-songbook-v2';
+const CACHE_VERSION = 'cts-songbook-v3';
+
 const CACHE_FILES = [
   './',
   './index.html',
+  './songs.js?v=1001',
   './manifest.json',
-  './songs.js?v=1000',
   './icon-192.png',
   './icon-512.png',
-  './apple-icon.png',
-  'https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;14..32,400;14..32,500;14..32,600;14..32,700&family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=Playfair+Display:ital,wght@0,400;0,500;0,600;1,400&display=swap',
-  'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css'
+  './apple-icon.png'
 ];
 
-// Install: cache everything we need for offline use
+// Install the new version
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
   event.waitUntil(
-    caches.open(CACHE_VERSION).then((cache) => {
-      return Promise.all(
-        CACHE_FILES.map((url) =>
-          cache.add(url).catch((err) => {
-            // Don't fail the whole install if one external resource (e.g. a font) can't be cached
-            console.warn('Could not cache', url, err);
-          })
-        )
+    caches.open(CACHE_VERSION).then(async (cache) => {
+      await Promise.all(
+        CACHE_FILES.map(async (url) => {
+          try {
+            const response = await fetch(url, { cache: 'reload' });
+            if (response.ok) {
+              await cache.put(url, response);
+            }
+          } catch (error) {
+            console.warn('Could not cache:', url, error);
+          }
+        })
       );
+
+      await self.skipWaiting();
     })
   );
 });
 
-// Activate: clean up old caches
+// Remove old versions
 self.addEventListener('activate', (event) => {
   event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(
-        keys.filter((key) => key !== CACHE_VERSION).map((key) => caches.delete(key))
-      )
-    )
+    (async () => {
+      const keys = await caches.keys();
+
+      await Promise.all(
+        keys
+          .filter((key) =>
+            key.startsWith('cts-songbook-') &&
+            key !== CACHE_VERSION
+          )
+          .map((key) => caches.delete(key))
+      );
+
+      await self.clients.claim();
+    })()
   );
-  self.clients.claim();
 });
 
-// Fetch: serve from cache first, fall back to network, and cache new requests as we go
+// Network-first for HTML and songs; cache-first for other assets
 self.addEventListener('fetch', (event) => {
-  if (event.request.method !== 'GET') return;
+  const request = event.request;
+
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  const isLocal = url.origin === self.location.origin;
+
+  const isImportantFile =
+    isLocal &&
+    (
+      url.pathname.endsWith('/index.html') ||
+      url.pathname.endsWith('/songs.js') ||
+      url.pathname.endsWith('/')
+    );
+
+  if (isImportantFile) {
+    event.respondWith(
+      (async () => {
+        try {
+          const response = await fetch(request, {
+            cache: 'no-cache'
+          });
+
+          if (response.ok) {
+            const cache = await caches.open(CACHE_VERSION);
+            await cache.put(request, response.clone());
+          }
+
+          return response;
+        } catch (error) {
+          const cached = await caches.match(request);
+
+          if (cached) return cached;
+
+          if (request.mode === 'navigate') {
+            return (
+              await caches.match('./index.html')
+            ) || Response.error();
+          }
+
+          return Response.error();
+        }
+      })()
+    );
+
+    return;
+  }
 
   event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) return cachedResponse;
+    (async () => {
+      const cached = await caches.match(request);
+      if (cached) return cached;
 
-      return fetch(event.request)
-        .then((networkResponse) => {
-          // Cache a copy of newly fetched files for next time we're offline
-          if (networkResponse && networkResponse.status === 200) {
-            const responseClone = networkResponse.clone();
-            caches.open(CACHE_VERSION).then((cache) => {
-              cache.put(event.request, responseClone);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          // If offline and not cached, fall back to the main page for navigation requests
-          if (event.request.mode === 'navigate') {
-            return caches.match('./index.html');
-          }
-        });
-    })
+      try {
+        const response = await fetch(request);
+
+        if (response.ok && response.status === 200) {
+          const cache = await caches.open(CACHE_VERSION);
+          await cache.put(request, response.clone());
+        }
+
+        return response;
+      } catch (error) {
+        return Response.error();
+      }
+    })()
   );
 });
