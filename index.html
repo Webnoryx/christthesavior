@@ -329,7 +329,7 @@
                 <div class="header-text">
                     <div class="kicker">Worship Songbook</div>
                     <h1>Christ the Savior <em>Church</em></h1>
-                    <p class="tagline">59 songs of praise, close at hand</p>
+                    <p class="tagline">60 songs of praise, close at hand</p>
                 </div>
             </div>
             <button id="installBtn" class="install-btn" title="Download App"><i class="fas fa-download"></i></button>
@@ -338,7 +338,7 @@
 
         <div class="search-section">
             <div class="search-wrapper">
-                <input type="text" id="searchInput" class="search-input" placeholder="Search by song name or number (1-59)" autocomplete="off">
+                <input type="text" id="searchInput" class="search-input" placeholder="Search by song name or number (1-60)" autocomplete="off">
                 <button id="searchBtn" class="search-btn"><i class="fas fa-search"></i> Search</button>
             </div>
             <div id="searchSuggestions" class="search-suggestions"></div>
@@ -876,7 +876,7 @@
                 }
                 const found = songsDatabase.find(s => s.title.toLowerCase().includes(query) || s.lyrics.toLowerCase().includes(query));
                 if (found) { selectSong(found.number); suggestionsDiv.classList.remove('active'); showToast(`Found: ${found.title}`); }
-                else showToast('No song found. Try a number (1-59) or word.');
+                else showToast('No song found. Try a number (1-60) or word.');
             }
 
             searchInput.addEventListener('input', showSuggestions);
